@@ -23,7 +23,7 @@ st.set_page_config(page_title="UL Morte – MiFID Profilo", layout="wide")
 st.title("📊 Simulazione basata su profilo di rischio (MiFID II)")
 
 # 📊 Tabelle mortalità
-df_mortality = load_istat_table("Tavole_di_mortalità.csv")
+df_mortality = load_istat_table("Tavole_di_mortalita.csv")
 
 # 📥 Inputs
 inputs = get_user_inputs_mifid()
