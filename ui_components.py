@@ -5,6 +5,7 @@ import numpy as np
 from simulation import simulate_ou_process
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 # Standard-Konfiguration (für app.py)
@@ -112,6 +113,9 @@ def simulate_rolling_bond_process(s0, mu, theta, sigma, total_days, n_paths, rol
     return value
 
 def plot_rolling_bond_segments(s0, mu, theta, sigma, roll_years, total_years, n_paths):
+    """
+    Visualizzazione maklerfreundlich: Valori medi in EUR simulati per obbligazioni reinvestite.
+    """
     if total_years < roll_years:
         st.info(f"📭 Durata ({total_years} anni) troppo breve per segmenti da {roll_years} anni.")
         return
@@ -129,11 +133,13 @@ def plot_rolling_bond_segments(s0, mu, theta, sigma, roll_years, total_years, n_
             days=roll_days,
             n_paths=n_paths
         )
-        r = np.clip(np.mean(sub_path, axis=0), 0, None)
-        avg_val = np.mean((1 + r) ** roll_years)
+        end_yield = np.clip(sub_path[-1, :], 0, None)
+        bond_growth = (1 + end_yield) ** roll_years
+        avg_val_eur = np.mean(bond_growth) * 1000  # auf 1.000 EUR Startwert bezogen
+
         results.append({
             "Periodo": f"{i * roll_years + 1}-{(i + 1) * roll_years}",
-            "Valore medio": avg_val
+            "Valore medio (EUR)": avg_val_eur
         })
 
     df = pd.DataFrame(results)
@@ -141,17 +147,66 @@ def plot_rolling_bond_segments(s0, mu, theta, sigma, roll_years, total_years, n_
     fig = px.bar(
         df,
         x="Periodo",
-        y="Valore medio",
-        text_auto=".2f",
-        color="Valore medio",
+        y="Valore medio (EUR)",
+        text_auto=".0f",
+        color="Valore medio (EUR)",
         color_continuous_scale="Blues",
-        title="📊 Performance media per segmento (Rolling Bond)"
+        title="📊 Crescita media dell'investimento obbligazionario per segmento"
     )
     fig.update_layout(
-        yaxis_title="Fattore di crescita",
-        xaxis_title="Periodo",
+        yaxis_title="Valore medio simulato (su 1.000 EUR investiti)",
+        xaxis_title="Periodo (anni)",
         plot_bgcolor="#fafafa",
         bargap=0.25,
         font=dict(size=14)
     )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("ℹ️ Ogni barra rappresenta il valore medio simulato di un'obbligazione zero-coupon reinvestita ogni 10 anni, su base 1.000 EUR.")
+def plot_bond_growth_over_time(s0, mu, theta, sigma, total_years, n_paths, roll_years=10, initial_investment=10_000):
+    """
+    Zeigt die simulierte Entwicklung eines rollierenden Anleiheinvestments über die Zeit.
+    """
+    roll_days = int(roll_years * 252)
+    n_rolls = total_years // roll_years
+    time_points = [i * roll_years for i in range(n_rolls + 1)]
+    values = np.ones((n_paths,)) * initial_investment
+    avg_growth = [initial_investment]
+
+    for _ in range(n_rolls):
+        rates = simulate_ou_process(s0=s0, mu=mu, theta=theta, sigma=sigma, days=roll_days, n_paths=n_paths)
+        end_yield = np.clip(rates[-1, :], 0, None)
+        bond_growth = (1 + end_yield) ** roll_years
+        values *= bond_growth
+        avg_growth.append(np.mean(values))
+
+    df = pd.DataFrame({
+        "Anno": time_points,
+        "Valore medio stimato (€)": avg_growth
+    })
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=df["Anno"],
+        y=df["Valore medio stimato (€)"],
+        mode="lines+markers",
+        name="Valore medio",
+        line=dict(width=4, color="steelblue"),
+        marker=dict(size=8, symbol="circle", color="steelblue")
+    ))
+
+    fig.update_layout(
+        title="📈 Crescita stimata dell’investimento obbligazionario (roll.)",
+        xaxis_title="Anni trascorsi",
+        yaxis_title="Valore medio (€)",
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(size=16),
+        hovermode="x unified",
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+
+    fig.update_yaxes(tickprefix="€", separatethousands=True)
+
     st.plotly_chart(fig, use_container_width=True)

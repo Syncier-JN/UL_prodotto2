@@ -86,20 +86,22 @@ def simulate_ou_process(s0, mu, theta, sigma, days, n_paths, dt=1/252, seed=None
 
     return X  # Shape: (days+1, n_paths)
 
-def simulate_rolling_bond_process(s0, mu, theta, sigma, total_days, n_paths, roll_years=10):
+def simulate_rolling_bond_process(y0, mu, theta, sigma, total_days, n_paths, roll_years=10):
     """
-    Simuliert ein rollierendes Anleiheportfolio mit Reinvestitionen alle `roll_years`.
-
-    Gibt den Gesamt-Endwert jedes Pfades nach N Wiederanlagestufen zurück.
+    Simuliert Bond-Rebalancing mit wachsendem Portfoliowert.
     """
     roll_days = int(roll_years * 252)
     n_rolls = total_days // roll_days
+    value = np.ones((n_paths,))  # Start bei 1.0 EUR
 
-    value = np.ones(n_paths) * s0  # Start mit Startwert 1.0 oder s0
+    for _ in range(n_rolls):
+        rates = simulate_ou_process(
+            s0=y0, mu=mu, theta=theta, sigma=sigma,
+            days=roll_days, n_paths=n_paths
+        )
+        # Letzter Zins pro Pfad:
+        end_yield = rates[-1, :]
+        bond_return = (1 + end_yield) ** roll_years  # diskreter Zinseszins
+        value *= bond_return
 
-    for i in range(n_rolls):
-        sub_path = simulate_ou_process(s0, mu, theta, sigma, days=roll_days, n_paths=n_paths)
-        growth = sub_path[-1, :]  # Endwert des Teilabschnitts
-        value *= growth  # Multipliziere kumulativ
-
-    return value  # shape: (n_paths,)
+    return value
