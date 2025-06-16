@@ -6,7 +6,7 @@ import pandas as pd
 from ui_components import get_user_inputs_mifid
 from simulation import simulate_multiple_paths, simulate_rolling_bond_process
 from results_display import display_results, display_costs_summary
-from mortality import load_istat_table, survival_probability
+from mortality import load_istat_table #, survival_probability
 from utils import (
     days_between_ages,
     get_guarantee_cost,
@@ -14,16 +14,16 @@ from utils import (
     plausibility_check
 )
 from summary_mifid import generate_mifid_summary_pdf
-from config import MIFID_FONDS
+#from config import MIFID_FONDS
 from fund_forecast import get_mu_sigma
-from ui_components import plot_rolling_bond_segments
+from ui_components import plot_bond_growth_over_time
 
 # 📄 Layout
 st.set_page_config(page_title="UL Morte – MiFID Profilo", layout="wide")
 st.title("📊 Simulazione basata su profilo di rischio (MiFID II)")
 
 # 📊 Tabelle mortalità
-df_mortality = load_istat_table("Tavole_di_mortalita.csv")
+df_mortality = load_istat_table("Tavole_di_mortalità.csv")
 
 # 📥 Inputs
 inputs = get_user_inputs_mifid()
@@ -70,9 +70,9 @@ if inputs["ready"] and st.button("▶️ Avvia simulazione"):
 
         if use_bond_simulation:
             theta = 0.2
-            s0 = 1.0  # Simuliere Startzins als mu
+            s0 = mu  # Simuliere Startzins als mu
             growth_factors = simulate_rolling_bond_process(
-                s0=s0,
+                y0=s0,
                 mu=mu,
                 theta=theta,
                 sigma=sigma,
@@ -112,10 +112,17 @@ if inputs["ready"] and st.button("▶️ Avvia simulazione"):
         # 📁 Visualizzazione simulazione
         st.subheader("📁 Visualizzazione simulazione")
         if use_bond_simulation:
-            plot_rolling_bond_segments(
-                s0=mu, mu=mu, theta=theta, sigma=sigma,
-                roll_years=10, total_years=T, n_paths=n_paths
+            plot_bond_growth_over_time(
+                s0=1.0,  # Startzins
+                mu=mu,
+                theta=theta,
+                sigma=sigma,
+                total_years=T,
+                n_paths=n_paths,
+                roll_years=10,
+                initial_investment=contribution
             )
+
         else:
             display_results(end_values, paths_value, death_age)
 
